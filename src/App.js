@@ -1,5 +1,5 @@
 import './App.css';
-import {Cartesian3, Transforms} from "cesium";
+import {Cartesian3, CesiumTerrainProvider, Rectangle, Transforms} from "cesium";
 import {Viewer, Entity, Polyline, PolylineCollection, CameraFlyTo} from "resium";
 import * as Cesium from "cesium";
 import {useEffect, useState} from "react";
@@ -17,25 +17,41 @@ polylines.add({
     width: 10,
 });
 
+const getGroundZ = async (terrain, coord, rect) => {
+    const geometry = await terrain.requestTileGeometry(coord[0], coord[1], 0);
+    return geometry.interpolateHeight(rect, coord[0], coord[1]);
+}
+const getCoords = async () => {
+    const terrainData = Cesium.createWorldTerrain();
+    await terrainData.readyPromise;
+    const rect = new Cesium.Rectangle(-123, 32, 125,40);
 
+    const coordz = await Promise.all(
+        rawCoords
+            .slice(0,10)
+            .map(async c => {
+                const z = await getGroundZ(terrainData, c, rect)
+                return [c[0], c[1], z];
+            }));
+
+    return coordz.flatMap(c => c);
+}
 
 const App = () => {
     const [examplePolyline, setExamplePolyline] = useState(null)
 
-    const theCoords = getCoords();
-
     useEffect(() => {
-
-        theCoords.then(coordz => {
-                setExamplePolyline({
-                    positions: Cesium.Cartesian3.fromDegreesArray(coordz),
-                    show: true,
-                    width: 10,
-                    loop: false
-                })
-            }
-        )
-    }, [theCoords])
+        const banana = async () => {
+            const x = await getCoords()
+            setExamplePolyline({
+                positions: Cesium.Cartesian3.fromDegreesArray(x),
+                show: true,
+                width: 10,
+                loop: false
+            })
+        }
+        return banana
+    }, [])
 
   return (
     <div className="App">
