@@ -1,5 +1,5 @@
 import './App.css';
-import {Cartesian3, CesiumTerrainProvider, Rectangle, Transforms} from "cesium";
+import {Cartesian3, Cartographic, CesiumTerrainProvider, Rectangle, Transforms} from "cesium";
 import {Viewer, Entity, Polyline, PolylineCollection, CameraFlyTo} from "resium";
 import * as Cesium from "cesium";
 import {useEffect, useState} from "react";
@@ -11,30 +11,45 @@ const coords = rawCoords.map((c) => new Cartesian3(c[0], c[1], 0));
 
 const center = Cartesian3.fromDegrees(-122.26348000000002,37.82822);
 
+const workingPositions = Cartesian3.fromDegreesArray(rawCoords.flatMap(c => c));
+
 const polylines = new Cesium.PolylineCollection();
 polylines.add({
     positions: Cartesian3.fromDegreesArray(rawCoords.flatMap(c => c)),
     width: 10,
 });
 
-const getGroundZ = async (terrain, coord, rect) => {
-    const geometry = await terrain.requestTileGeometry(coord[0], coord[1], 0);
-    return geometry.interpolateHeight(rect, coord[0], coord[1]);
+const examplePolyline = {
+    positions: workingPositions,
+    show: true,
+    width: 10,
+    loop: false
 }
+
 const getCoords = async () => {
-    const terrainData = Cesium.createWorldTerrain();
+    /*const terrainData = Cesium.createWorldTerrain();
     await terrainData.readyPromise;
     const rect = new Cesium.Rectangle(-123, 32, 125,40);
 
-    const coordz = await Promise.all(
+    const coords = (await Promise.all(
         rawCoords
             .slice(0,10)
             .map(async c => {
-                const z = await getGroundZ(terrainData, c, rect)
-                return [c[0], c[1], z];
-            }));
+                return Cesium.Cartographic.fromDegrees(c[0], c[1]);
+            }))).flatMap(c => c);
+    const heightAdjusted = await Cesium.sampleTerrain(terrainData, 11, coords);
+    console.log(heightAdjusted);
+    return heightAdjusted.map(c => Cartographic.toCartesian());*/
+    var terrainProvider = Cesium.createWorldTerrain();
+    var positions = rawCoords.map(c => Cesium.Cartographic.fromDegrees(c[0], c[1]));
+    var heights = await Cesium.sampleTerrain(terrainProvider, 11, positions);
 
-    return coordz.flatMap(c => c);
+    var coords = [];
+    for (var i=0; i<rawCoords.length; i++){
+        coords.push([rawCoords[i][0], rawCoords[i][1], heights[i].height]);
+    }
+    console.log(coords);
+    return coords.map(c => Cartesian3.fromDegrees(c[0], c[1], c[2]));
 }
 
 const App = () => {
@@ -42,9 +57,9 @@ const App = () => {
 
     useEffect(() => {
         const banana = async () => {
-            const x = await getCoords()
+            const coords = await getCoords();
             setExamplePolyline({
-                positions: Cesium.Cartesian3.fromDegreesArray(x),
+                positions: coords,
                 show: true,
                 width: 10,
                 loop: false
